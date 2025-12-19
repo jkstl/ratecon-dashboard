@@ -87,28 +87,35 @@ function App() {
     };
 
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', padding: '20px' }}>
-        <div style={{ width: '100%', maxWidth: '400px', background: 'white', padding: '40px', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-          <h1 style={{ textAlign: 'center', marginBottom: '10px', fontSize: '24px' }}>RateCon Ripper</h1>
-          <p style={{ textAlign: 'center', color: '#666', marginBottom: '25px', fontSize: '14px' }}>
-            Enter your email to receive a secure login link.
-          </p>
+      <div className="login-container">
+        <div className="login-card">
+          <div style={{ marginBottom: '24px' }}>
+            {/* Simple Logo Placeholder */}
+            <div style={{ width: '48px', height: '48px', background: '#dbeafe', borderRadius: '12px', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <RefreshCw size={24} />
+            </div>
+            <h1 style={{ margin: '0 0 8px', fontSize: '24px', color: '#0f172a' }}>Welcome Back</h1>
+            <p style={{ margin: 0, color: '#64748b', fontSize: '15px' }}>
+              Enter your email to access your workspace.
+            </p>
+          </div>
           
-          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <form onSubmit={handleLogin}>
             <input 
+              className="login-input"
               name="email" 
               type="email" 
               placeholder="name@company.com" 
               required
-              style={{ padding: '12px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '16px' }} 
             />
-            <button 
-              type="submit" 
-              style={{ padding: '12px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', fontSize: '16px', cursor: 'pointer', fontWeight: 'bold' }}
-            >
+            <button type="submit" className="login-btn">
               Send Magic Link
             </button>
           </form>
+          
+          <p style={{ fontSize: '13px', color: '#94a3b8', marginTop: '24px' }}>
+            Secure passwordless access via Supabase.
+          </p>
         </div>
       </div>
     );
