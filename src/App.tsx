@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from './lib/supabase';
 import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
-import { Session } from '@supabase/supabase-js';
+import type { Session } from '@supabase/supabase-js';
 import { RefreshCw, X, Save, Calendar, Hash, DollarSign, ArrowRight, LogOut } from 'lucide-react';
 import './App.css';
 
