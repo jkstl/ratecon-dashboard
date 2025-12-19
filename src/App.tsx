@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react';
 import { supabase } from './lib/supabase';
-import { Auth } from '@supabase/auth-ui-react';
-import { ThemeSupa } from '@supabase/auth-ui-shared';
 import type { Session } from '@supabase/supabase-js';
 import { RefreshCw, X, Save, Calendar, Hash, DollarSign, ArrowRight, LogOut } from 'lucide-react';
 import './App.css';
@@ -39,7 +37,6 @@ function App() {
   const fetchLoads = async () => {
     if (!session) return;
     setLoading(true);
-    // RLS will automatically filter this to only show the user's loads
     const { data, error } = await supabase
       .from('loads')
       .select('*')
@@ -77,24 +74,47 @@ function App() {
     return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  // 3. RENDER: If no session, show Login Screen
+  // 3. RENDER: LOGIN SCREEN (Manual Form)
   if (!session) {
+    const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      const email = (e.currentTarget.elements.namedItem('email') as HTMLInputElement).value;
+      
+      // Send Magic Link
+      const { error } = await supabase.auth.signInWithOtp({ email });
+      if (error) alert('Error: ' + error.message);
+      else alert('Check your email for the login link!');
+    };
+
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', padding: '20px' }}>
         <div style={{ width: '100%', maxWidth: '400px', background: 'white', padding: '40px', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-          <h1 style={{ textAlign: 'center', marginBottom: '20px', fontSize: '24px' }}>RateCon Ripper</h1>
-          <Auth 
-            supabaseClient={supabase} 
-            appearance={{ theme: ThemeSupa }} 
-            theme="default"
-            providers={[]} // Email only for now
-          />
+          <h1 style={{ textAlign: 'center', marginBottom: '10px', fontSize: '24px' }}>RateCon Ripper</h1>
+          <p style={{ textAlign: 'center', color: '#666', marginBottom: '25px', fontSize: '14px' }}>
+            Enter your email to receive a secure login link.
+          </p>
+          
+          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            <input 
+              name="email" 
+              type="email" 
+              placeholder="name@company.com" 
+              required
+              style={{ padding: '12px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '16px' }} 
+            />
+            <button 
+              type="submit" 
+              style={{ padding: '12px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', fontSize: '16px', cursor: 'pointer', fontWeight: 'bold' }}
+            >
+              Send Magic Link
+            </button>
+          </form>
         </div>
       </div>
     );
   }
 
-  // 4. RENDER: If session exists, show Dashboard
+  // 4. RENDER: DASHBOARD
   return (
     <div className="app-container">
       {/* HEADER */}
