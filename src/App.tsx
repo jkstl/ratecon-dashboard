@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from './lib/supabase';
-import { RefreshCw, X, Save, MapPin, Calendar, Hash, DollarSign, ArrowRight } from 'lucide-react';
+import { RefreshCw, X, Save, Calendar, Hash, DollarSign, ArrowRight } from 'lucide-react';
 import './App.css';
 
 interface Load {
