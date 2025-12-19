@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from './lib/supabase';
-import { Truck, DollarSign, Calendar, MapPin, RefreshCw } from 'lucide-react';
-import './App.css'; // Standard Vite CSS
+import { Truck, DollarSign, MapPin, RefreshCw, X, Save } from 'lucide-react';
+import './App.css';
 
 interface Load {
   id: string;
@@ -16,10 +16,10 @@ interface Load {
 function App() {
   const [loads, setLoads] = useState<Load[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editingLoad, setEditingLoad] = useState<Load | null>(null);
 
   const fetchLoads = async () => {
     setLoading(true);
-    // Fetch all loads (ordered by newest)
     const { data, error } = await supabase
       .from('loads')
       .select('*')
@@ -30,96 +30,123 @@ function App() {
     setLoading(false);
   };
 
+  const handleUpdate = async () => {
+    if (!editingLoad) return;
+    
+    // 1. Update Supabase
+    const { error } = await supabase
+      .from('loads')
+      .update({
+        rate_amount: editingLoad.rate_amount,
+        load_reference: editingLoad.load_reference,
+        commodity: editingLoad.commodity
+      })
+      .eq('id', editingLoad.id);
+
+    if (error) {
+      alert("Failed to update: " + error.message);
+    } else {
+      // 2. Refresh Local State
+      setLoads(loads.map(l => l.id === editingLoad.id ? editingLoad : l));
+      setEditingLoad(null); // Close modal
+    }
+  };
+
   useEffect(() => {
     fetchLoads();
   }, []);
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'Arial, sans-serif', backgroundColor: '#f4f4f9', minHeight: '100vh' }}>
+    <div style={{ padding: '1rem', fontFamily: 'Arial, sans-serif', backgroundColor: '#f4f4f9', minHeight: '100vh' }}>
+      
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-        <div>
-          <h1 style={{ margin: 0, color: '#1a1a1a' }}>RateCon Dashboard</h1>
-          <p style={{ margin: 0, color: '#666' }}>Live Feed from Email Gateway</p>
-        </div>
-        <button 
-          onClick={fetchLoads}
-          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
-        >
-          <RefreshCw size={18} /> Refresh
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+        <h1 style={{ margin: 0, fontSize: '1.5rem', color: '#1a1a1a' }}>RateCon Dashboard</h1>
+        <button onClick={fetchLoads} style={btnStyle}>
+          <RefreshCw size={18} />
         </button>
       </div>
 
-      {/* Stats Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-        <Card title="Total Loads" value={loads.length} icon={<Truck />} />
-        <Card title="Revenue Pending" value={`$${loads.reduce((acc, curr) => acc + (curr.rate_amount || 0), 0)}`} icon={<DollarSign />} />
+      {/* Stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
+        <Card title="Loads" value={loads.length} icon={<Truck size={20}/>} />
+        <Card title="Revenue" value={`$${loads.reduce((acc, curr) => acc + (curr.rate_amount || 0), 0)}`} icon={<DollarSign size={20}/>} />
       </div>
 
-      {/* The Load Table */}
-      <div style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-          <thead style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-            <tr>
-              <th style={{ padding: '1rem' }}>Status</th>
-              <th style={{ padding: '1rem' }}>Load Ref #</th>
-              <th style={{ padding: '1rem' }}>Commodity</th>
-              <th style={{ padding: '1rem' }}>Route</th>
-              <th style={{ padding: '1rem' }}>Rate</th>
-              <th style={{ padding: '1rem' }}>Received</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={6} style={{ padding: '2rem', textAlign: 'center' }}>Loading feed...</td></tr>
-            ) : loads.map((load) => (
-              <tr key={load.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                <td style={{ padding: '1rem' }}>
-                  <span style={{ 
-                    padding: '4px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold',
-                    backgroundColor: load.status === 'PUSHED_TO_TMS' ? '#dcfce7' : '#fee2e2',
-                    color: load.status === 'PUSHED_TO_TMS' ? '#166534' : '#991b1b'
-                  }}>
-                    {load.status}
-                  </span>
-                </td>
-                <td style={{ padding: '1rem', fontWeight: 'bold' }}>{load.load_reference}</td>
-                <td style={{ padding: '1rem' }}>{load.commodity}</td>
-                <td style={{ padding: '1rem', fontSize: '14px', color: '#64748b' }}>
-                  {/* Extract cities from raw_data if available */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    <MapPin size={14}/>
-                    {load.raw_data?.stops?.[0]?.city}, {load.raw_data?.stops?.[0]?.state} 
-                    {' ➝ '}
-                    {load.raw_data?.stops?.[load.raw_data.stops.length - 1]?.city}, {load.raw_data?.stops?.[load.raw_data.stops.length - 1]?.state}
-                  </div>
-                </td>
-                <td style={{ padding: '1rem', fontWeight: 'bold', color: '#16a34a' }}>${load.rate_amount}</td>
-                <td style={{ padding: '1rem', color: '#94a3b8', fontSize: '14px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    <Calendar size={14}/>
-                    {new Date(load.created_at).toLocaleDateString()}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* Load List */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        {loading ? <p>Loading...</p> : loads.map((load) => (
+          <div 
+            key={load.id} 
+            onClick={() => setEditingLoad(load)}
+            style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', cursor: 'pointer' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+              <span style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{load.load_reference}</span>
+              <span style={{ fontWeight: 'bold', color: '#16a34a' }}>${load.rate_amount}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#64748b', fontSize: '0.9rem' }}>
+              <MapPin size={14}/>
+              {load.raw_data?.stops?.[0]?.city} ➝ {load.raw_data?.stops?.[load.raw_data.stops?.length - 1]?.city}
+            </div>
+          </div>
+        ))}
       </div>
+
+      {/* EDIT MODAL */}
+      {editingLoad && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '12px', width: '100%', maxWidth: '400px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+              <h2 style={{ margin: 0 }}>Edit Load</h2>
+              <button onClick={() => setEditingLoad(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X /></button>
+            </div>
+
+            <label style={labelStyle}>Load Ref #</label>
+            <input 
+              style={inputStyle} 
+              value={editingLoad.load_reference} 
+              onChange={e => setEditingLoad({...editingLoad, load_reference: e.target.value})}
+            />
+
+            <label style={labelStyle}>Rate Amount ($)</label>
+            <input 
+              style={inputStyle} 
+              type="number" 
+              value={editingLoad.rate_amount} 
+              onChange={e => setEditingLoad({...editingLoad, rate_amount: parseFloat(e.target.value)})}
+            />
+
+            <label style={labelStyle}>Commodity</label>
+            <input 
+              style={inputStyle} 
+              value={editingLoad.commodity} 
+              onChange={e => setEditingLoad({...editingLoad, commodity: e.target.value})}
+            />
+
+            <button onClick={handleUpdate} style={{ ...btnStyle, width: '100%', justifyContent: 'center', marginTop: '1rem', backgroundColor: '#16a34a' }}>
+              <Save size={18} /> Save Changes
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
 
-// Simple Helper Component
+// Styles
+const btnStyle = { display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' };
+const inputStyle = { width: '100%', padding: '10px', marginBottom: '1rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '16px' };
+const labelStyle = { display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', fontSize: '0.9rem', color: '#475569' };
+
 function Card({ title, value, icon }: any) {
   return (
-    <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-      <div style={{ padding: '10px', backgroundColor: '#eff6ff', borderRadius: '50%', color: '#2563eb' }}>
-        {icon}
-      </div>
+    <div style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      <div style={{ color: '#2563eb' }}>{icon}</div>
       <div>
-        <p style={{ margin: 0, fontSize: '14px', color: '#64748b' }}>{title}</p>
-        <h3 style={{ margin: 0, fontSize: '24px', color: '#0f172a' }}>{value}</h3>
+        <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b' }}>{title}</p>
+        <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a' }}>{value}</h3>
       </div>
     </div>
   );
