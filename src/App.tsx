@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { supabase } from './lib/supabase';
-import { RefreshCw, X, Save, Calendar, Hash, DollarSign, ArrowRight } from 'lucide-react';
+import { Auth } from '@supabase/auth-ui-react';
+import { ThemeSupa } from '@supabase/auth-ui-shared';
+import { Session } from '@supabase/supabase-js';
+import { RefreshCw, X, Save, Calendar, Hash, DollarSign, ArrowRight, LogOut } from 'lucide-react';
 import './App.css';
 
 interface Load {
@@ -14,12 +17,29 @@ interface Load {
 }
 
 function App() {
+  const [session, setSession] = useState<Session | null>(null);
   const [loads, setLoads] = useState<Load[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingLoad, setEditingLoad] = useState<Load | null>(null);
 
+  // 1. Check for Active Session
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // 2. Fetch Loads (Only if logged in)
   const fetchLoads = async () => {
+    if (!session) return;
     setLoading(true);
+    // RLS will automatically filter this to only show the user's loads
     const { data, error } = await supabase
       .from('loads')
       .select('*')
@@ -48,29 +68,48 @@ function App() {
     }
   };
 
-  useEffect(() => { fetchLoads(); }, []);
+  useEffect(() => {
+    if (session) fetchLoads();
+  }, [session]);
 
-  // Helper to format dates nicely (e.g., "Oct 24")
   const formatDate = (dateStr: string) => {
     if (!dateStr) return 'TBD';
     return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
+  // 3. RENDER: If no session, show Login Screen
+  if (!session) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', padding: '20px' }}>
+        <div style={{ width: '100%', maxWidth: '400px', background: 'white', padding: '40px', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+          <h1 style={{ textAlign: 'center', marginBottom: '20px', fontSize: '24px' }}>RateCon Ripper</h1>
+          <Auth 
+            supabaseClient={supabase} 
+            appearance={{ theme: ThemeSupa }} 
+            theme="default"
+            providers={[]} // Email only for now
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // 4. RENDER: If session exists, show Dashboard
   return (
     <div className="app-container">
-      
       {/* HEADER */}
       <header className="header">
         <div className="logo-area">
           <h1>RateCon Ripper</h1>
           <span className="badge-beta">BETA</span>
         </div>
-        <button onClick={fetchLoads} className="btn-refresh">
-          <RefreshCw size={18} />
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button onClick={fetchLoads} className="btn-refresh"><RefreshCw size={18} /></button>
+          <button onClick={() => supabase.auth.signOut()} className="btn-refresh"><LogOut size={18} /></button>
+        </div>
       </header>
 
-      {/* HERO STATS */}
+      {/* STATS */}
       <div className="stats-container">
         <div className="stat-card revenue">
           <span className="stat-label">Pending Revenue</span>
@@ -85,25 +124,18 @@ function App() {
         </div>
       </div>
 
-      {/* LOAD FEED */}
       <div className="feed-label">Recent Activity</div>
       
       <div className="load-list">
-        {loading ? <div className="loading-state">Syncing with AI...</div> : loads.length === 0 ? (
-          <div className="empty-state">No loads found. Forward a RateCon to start.</div>
+        {loading ? <div className="loading-state">Syncing secure feed...</div> : loads.length === 0 ? (
+          <div className="empty-state">No loads found for this account.</div>
         ) : (
           loads.map((load) => (
             <div key={load.id} className="load-card" onClick={() => setEditingLoad(load)}>
-              
-              {/* Card Header: Ref # and Rate */}
               <div className="card-top">
-                <div className="ref-badge">
-                  <Hash size={12} /> {load.load_reference}
-                </div>
+                <div className="ref-badge"><Hash size={12} /> {load.load_reference}</div>
                 <div className="rate-badge">${load.rate_amount}</div>
               </div>
-
-              {/* Route Section */}
               <div className="route-container">
                 <div className="stop">
                   <span className="stop-label">PICKUP</span>
@@ -111,11 +143,7 @@ function App() {
                   <span className="state">{load.raw_data?.stops?.[0]?.state}</span>
                   <div className="date-pill"><Calendar size={10} /> {formatDate(load.raw_data?.stops?.[0]?.date)}</div>
                 </div>
-                
-                <div className="route-arrow">
-                  <ArrowRight size={20} color="#cbd5e1" />
-                </div>
-
+                <div className="route-arrow"><ArrowRight size={20} color="#cbd5e1" /></div>
                 <div className="stop right">
                   <span className="stop-label">DROP</span>
                   <span className="city">{load.raw_data?.stops?.[load.raw_data.stops?.length - 1]?.city || 'Unknown'}</span>
@@ -123,8 +151,6 @@ function App() {
                    <div className="date-pill"><Calendar size={10} /> {formatDate(load.raw_data?.stops?.[load.raw_data.stops?.length - 1]?.date)}</div>
                 </div>
               </div>
-
-              {/* Footer: Commodity & Status */}
               <div className="card-footer">
                 <span className="commodity">{load.commodity || 'General Freight'}</span>
                 <span className={`status-dot ${load.status === 'PUSHED_TO_TMS' ? 'success' : 'pending'}`}>
@@ -144,22 +170,18 @@ function App() {
               <h2>Edit Load Details</h2>
               <button onClick={() => setEditingLoad(null)} className="close-btn"><X /></button>
             </div>
-            
             <div className="input-group">
               <label>Reference Number</label>
               <input value={editingLoad.load_reference} onChange={e => setEditingLoad({...editingLoad, load_reference: e.target.value})} />
             </div>
-
             <div className="input-group">
               <label>Rate ($)</label>
               <input type="number" value={editingLoad.rate_amount} onChange={e => setEditingLoad({...editingLoad, rate_amount: parseFloat(e.target.value)})} />
             </div>
-
             <div className="input-group">
               <label>Commodity</label>
               <input value={editingLoad.commodity} onChange={e => setEditingLoad({...editingLoad, commodity: e.target.value})} />
             </div>
-
             <button onClick={handleUpdate} className="save-btn"><Save size={18} /> Update Load</button>
           </div>
         </div>
