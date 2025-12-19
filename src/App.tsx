@@ -62,7 +62,7 @@ function App() {
       {/* HEADER */}
       <header className="header">
         <div className="logo-area">
-          <h1>KistLogic</h1>
+          <h1>RateCon Ripper</h1>
           <span className="badge-beta">BETA</span>
         </div>
         <button onClick={fetchLoads} className="btn-refresh">
